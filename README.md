@@ -1,58 +1,79 @@
-# libtrm 
+# libtrm
 
-A lightweight, zero-dependency, single-header C library for Linux that exposes your application's true memory footprint.
+A lightweight, zero-dependency, single-header C library for Linux that reads detailed process memory metrics.
 
-## What this solves
-If you use standard tools to check how much RAM your C application is using, you are usually given the RSS (Resident Set Size). 
+## Motivation
+Standard memory profiling tools often rely on RSS (Resident Set Size). While useful as a baseline, RSS counts shared libraries multiple times across different processes. If five programs use the same 10MB standard library, RSS attributes that full 10MB to *each* program.
 
-**RSS is a lie.** It counts shared libraries multiple times. If you have 5 programs running, they all share the same standard libraries in physical RAM, but RSS charges your program for the full size of that shared code. This makes monitoring your program's RAM usage inaccurate.
+`libtrm` parses `/proc/self/smaps_rollup` and falls back to `/proc/self/smaps` on older kernels to give you a more nuanced and actionable view of your memory footprint:
 
-`libtrm` gives you the absolute truth by parsing three critical metrics:
-
-* **PSS (Proportional Set Size):** Your fair share. If a 10MB library is shared by 5 apps, you are only charged 2MB.
-* **USS (Unique Set Size):** This is the RAM that only you are using. If you kill your process, this is exactly how much memory the OS gets back.
-* **RSS (Resident Set Size):** The standard metric, kept for comparison.
+* **USS (Unique Set Size):** Memory strictly private to your process. This is the amount of physical RAM the OS would actually reclaim if your process terminated.
+* **PSS (Proportional Set Size):** Your USS plus a proportional share of loaded shared libraries.
+* **RSS (Resident Set Size):** The standard resident memory metric, provided for comparison.
 
 ## Installation
-Just drop `libtrm.h` into your project. Because it uses `static inline` linkage, you can just include it anywhere:
+`libtrm` uses the standard STB-style single-header design. Drop `libtrm.h` into your project.
 
-```c
-#include "libtrm.h"
-```
-
-If you prefer the STB-style where the logic only lives in one file, define the implementation macro in exactly one C file:
+In **exactly one** C file, define the implementation macro before including the header to compile the library logic:
 
 ```c
 #define LIBTRM_IMPLEMENTATION
 #include "libtrm.h"
 ```
 
-That's it. You've got `libtrm` ready to go. Now you can use the API to read the true (or fake) RAM usage of your program at any time. You can also check how much memory shared libraries are saving you!
+In any other file where you need to call the API, just include the header normally:
+
+```c
+#include "libtrm.h"
+```
+
+## Quick Start
+```c
+#include <stdio.h>
+
+#define LIBTRM_IMPLEMENTATION
+#include "libtrm.h"
+
+int main() {
+    trm_memory_t mem;
+    trm_result_t result = trm_get_memory(&mem);
+
+    if (result == TRM_OK) {
+        printf("Private RAM (USS): %zu KB\n", mem.uss_kb);
+        printf("Proportional RAM (PSS): %zu KB\n", mem.pss_kb);
+    } else {
+        printf("Failed to read memory metrics (Code: %d)\n", result);
+    }
+
+    return 0;
+}
+```
 
 ## API Reference
 
 ### `trm_memory_t`
 The data container populated by the library.
-* `uss_kb` / `uss_bytes` — RAM unique to your process.
-* `pss_kb` / `pss_bytes` — Your true, proportional footprint.
-* `rss_kb` / `rss_bytes` — The standard (bloated) memory metric.
-* `shared_kb` / `shared_bytes` — The RAM you are saving by sharing with the OS.
+* `uss_kb` / `uss_bytes`: RAM uniquely bound to your process.
+* `pss_kb` / `pss_bytes`: Your proportional footprint, accounting for shared library division.
+* `rss_kb` / `rss_bytes`: The standard baseline memory metric.
+* `shared_saved_kb` / `shared_saved_bytes`: A derived heuristic representing the physical RAM your process is saving because the OS is sharing library pages with other programs.
 
 ### `trm_result_t trm_get_memory(trm_memory_t* mem)`
-The core function. It defensively zeroes out your struct at the start, so you don't read garbage data if the call fails.
+The core function. Defensively zeroes out the provided struct before attempting to read data.
 
 **Returns:**
-* `TRM_OK (0)` — Success.
-* `TRM_ERR_NULL_PTR (-1)` — You passed a NULL pointer.
-* `TRM_ERR_IO (-2)` — Failed to read /proc files (Expected if you are not on Linux).
-* `TRM_ERR_PARSE (-3)` — Files found, but the kernel isn't reporting data.
+* `TRM_OK (0)`: Success. All core metrics were successfully parsed.
+* `TRM_ERR_NULL_PTR (-1)`: Null pointer provided.
+* `TRM_ERR_IO (-2)`: Failed to open `/proc` files. This is expected on non-Linux systems or in highly restricted environments.
+* `TRM_ERR_PARSE (-3)`: Files opened, but the parser failed to extract baseline metrics.
+* `TRM_ERR_PARTIAL_DATA (-4)`: The kernel provided basic metrics but omitted the private page data required to calculate USS.
 
-## See It In Action
-* **main.c**: An interactive tutorial. It allocates 50MB and uses `libtrm` to show you how the kernel "lies" about allocation until you actually touch the memory.
-* **errors_test.c**: A robustness suite. It proves the library handles NULL pointers and dirty stack memory without crashing.
+## Performance & Caveats
+* **Context Switching:** Reading from the `/proc` virtual filesystem requires a kernel context switch and text parsing. **Do not call this function in a tight loop**. Use it periodically or triggered by debug events.
+* **Kernel Dependence:** Memory reporting in Linux is inherently complex. These metrics are kernel-reported aggregates, and their availability can be influenced by containerization boundaries or kernel versions.
 
 ## Support & Contact
 If you find any bugs, have any ideas to improve this, or just want to chat about C in general, feel free to email me.
 
 **Email:** ticuette@gmail.com  
-**More Tools:** Check out other tools at [willmanstoolbox.com](https://willmanstoolbox.com)
+**Check out other tools at:** [willmanstoolbox.com](https://willmanstoolbox.com)
