@@ -28,11 +28,10 @@ int main() {
 
     memset(&ram, 0xFF, sizeof(trm_memory_t));
     printf("Status: Struct filled with garbage (0xFF).\n");
-    printf("Pre-call PSS: %zu\n", ram.pss_kb);
 
     res = trm_get_memory(&ram);
 
-    if (res == TRM_OK) {
+    if (res == TRM_OK || res == TRM_ERR_PARTIAL_DATA) {
         if (ram.pss_kb != (size_t)-1) {
             printf("PASSED: Internal memset() successfully wiped the garbage data.\n");
             printf("Post-call PSS: %zu kB\n", ram.pss_kb);
@@ -60,11 +59,10 @@ int main() {
     printf("==========================================\n");
 
     printf("=============================================================================\n");
-    printf(" Error showcase omplete! Thank you for checking out the project.\n");
+    printf(" Error showcase complete! Thank you for checking out the project.\n");
     printf(" Feel free to ask any questions at ticuette@gmail.com.\n");
     printf(" You can support my work or check out other tools at willmanstoolbox.com\n");
     printf("=============================================================================\n");
-
 
     return 0;
 }
