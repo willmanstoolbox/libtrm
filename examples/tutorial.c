@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #define LIBTRM_IMPLEMENTATION
-#include "libtrm.h"
+#include "../libtrm.h"
 
 int main() {
     printf("======================================================================================================\n");
