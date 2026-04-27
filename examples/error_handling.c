@@ -2,7 +2,7 @@
 #include <string.h>
 
 #define LIBTRM_IMPLEMENTATION
-#include "libtrm.h"
+#include "../libtrm.h"
 
 void test_header(const char* name) {
     printf("\n[TEST]: %s\n", name);
