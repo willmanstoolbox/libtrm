@@ -16,9 +16,9 @@ int main() {
     printf("Step 2: Calling the libtrm API.\n");
     trm_result_t result = trm_get_memory(&ram);
 
-    if (result != TRM_OK) {
+    if (result < 0 && result != TRM_ERR_PARTIAL_DATA) {
         if (result == TRM_ERR_IO) {
-            printf("ERROR: libtrm failed to read the memory files. This will happen if you are not on Linux. (I guess this could also be a permission issue but you will know better than me here)\n");
+            printf("ERROR: libtrm failed to read the memory files. This will happen if you are not on Linux.\n");
         } else if (result == TRM_ERR_PARSE) {
             printf("ERROR: Files found, but the kernel isn't reporting the data we need for some reason.\n");
         } else {
@@ -31,12 +31,12 @@ int main() {
     printf("------------------------------------------------------------\n");
     printf("  -> RSS: %zu kB  This counts shared standard libraries multiple times.\n", ram.rss_kb);
     printf("  -> PSS: %zu kB  This is your true, proportional footprint. Look how small!\n", ram.pss_kb);
-    printf("  -> USS: %zu kB  RAM that only you are using.)\n", ram.uss_kb);
-    printf("  -> Shared: %zu kB  RAM you are saving by sharing libraries with the OS. So yeah Linux was lying all along.)\n");
+    printf("  -> USS: %zu kB  RAM that only you are using.\n", ram.uss_kb);
+    printf("  -> Shared: %zu kB  RAM you are saving by sharing libraries with the OS.)\n", ram.shared_saved_kb);
     printf("  -> PSS in Bytes: %zu bytes\n", ram.pss_bytes);
     printf("     (This can be done without the API by just multiplying by 1024, but I decided to add it so you can log it easier or do math with it.)\n");
 
-    printf("Step 3: Demonstrating Lazy Allocation.\n");
+    printf("\nStep 3: Demonstrating Lazy Allocation.\n");
     printf("malloc() will allocate some ram here\n\n");
 
     size_t massive_size = 50 * 1024 * 1024;
